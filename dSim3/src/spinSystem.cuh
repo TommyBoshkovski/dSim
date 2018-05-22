@@ -1,6 +1,7 @@
 extern "C"
 {
 
+
 void checkCUDA();
 
 void allocateArray(void **devPtr, int size);
@@ -32,28 +33,28 @@ void bindTriInfo(uint* ptr, int size);
 void unbindTriInfo();
 
 void integrateSystem(
-			float* pos,
+			uint vboPos,
 			uint* randSeed,
-			//float* spinInfo,
 			spinData* spinInfo,
 			float deltaTime,
 			float permeability,
-			int numBodies,
-			float3 magneticGradient,
+			uint numBodies,
+			float3 gradient,
 			float phaseConstant,
-			uint iterations, uint* trianglesInCubes, uint* cubeCounter
+			uint iterations, uint* trianglesInCubes, uint* cubeCounter,uint m_nMembraneTypes,
+uint m_nPosValues, uint m_numSpins, uint m_nSeedValues, uint m_numCompartments, float* m_hT2Values, float* m_hStdDevs, uint m_reflectionType, uint m_triSearchMethod, uint m_nFibers
 			);
 
 void integrateSystemVBO(
-			uint vboPos,
+			float* vboPos,
 			uint* randSeed,
-			//float* spinInfo,
 			spinData* spinInfo,
 			float deltaTime,
 			float permeability,
-			int numBodies,
-			float3 magneticGradient,
+			uint numBodies,
+			float3 gradient,
 			float phaseConstant,
-			uint iterations, uint* trianglesInCubes, uint* cubeCounter
+			uint iterations, uint* trianglesInCubes, uint* cubeCounter,uint m_nMembraneTypes,
+uint m_nPosValues, uint m_numSpins, uint m_nSeedValues, uint m_numCompartments, float* m_hT2Values, float* m_hStdDevs, uint m_reflectionType, uint m_triSearchMethod, uint m_nFibers, uint m_nSpinValues, uint m_totalNumCubes, uint m_maxTrianglesPerCube,uint m_numCubes, uint m_posVbo
 			);
 }

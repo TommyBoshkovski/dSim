@@ -8,13 +8,15 @@
 
 #include <stdio.h>
 #include <math.h>
-#include "cutil_math.h"
+#include <helper_math.h>
 #include "math_constants.h"
+#include "cuda.h"
 #include "options.h"
 #include "dSimDataTypes.h"
 
 #define PI 3.14159265358979f
 #define TWOPI 6.28318530717959f
+
 
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -346,7 +348,7 @@ __device__ uint SearchRTreeArray(float* rect, uint* interSectArray, uint8 &compa
 
 	uint currentNodeIndex;
 	
-
+	
 
 	while (stackIndex > 0){					// Stop when we've emptied the stack
 		stackIndex--;					// Pop the top node off the stack
@@ -392,6 +394,9 @@ __device__ uint SearchRTreeArray(float* rect, uint* interSectArray, uint8 &compa
 //////////////////////////////////////////////////////////////////////////////////////////
 __device__ float3 collDetectRTree(float3 startPos, float3 targetPos, float u, uint8 &compartment, uint16 &fiberInside){
 	
+
+	
+
 	float3 endPos = targetPos;
 	uint hitArray[1200];				// Hitarray will store the indices of the triangles that the particle possible collides with - we are assuming no more than 100
 	float spinRectangle[6];
@@ -524,6 +529,8 @@ __device__ float3 collDetectRTree(float3 startPos, float3 targetPos, float u, ui
 /////////////////////////////////////////////////////////////////////////////////////////////
 __device__ collResult cubeCollDetect(float3 oPos, float3 pos, uint cubeIndex, uint excludedTriangle, uint* trianglesInCubes, uint* cubeCounter){
 
+	
+	
 	uint triIndex, k_max;
 	collResult result, testCollision;
 	result.collisionType = 0;
@@ -567,6 +574,9 @@ __device__ collResult cubeCollDetect(float3 oPos, float3 pos, uint cubeIndex, ui
 ///////////////////////////////////////////////////////////////////////////////////////////////
 __device__ float3 collDetectRectGrid(float3 startPos, float3 targetPos, float u, uint8 compartment, uint16 fiberInside, uint* trianglesInCubes, uint* cubeCounter){
 
+
+
+	printf("RectGrid ....");
 	float3 endPos = targetPos;
 	collResult collCheck;
 	collCheck.collisionType = 1;
@@ -627,14 +637,14 @@ __device__ float3 collDetectRectGrid(float3 startPos, float3 targetPos, float u,
 
 		if (collCheck.collisionType > 0){
 
-			//printf("(in collDetectRectGrid): Collision!\n");
-			//printf("(in collDetectRectGrid): Startpos: [%g,%g,%g]\n", startPos.x, startPos.y, startPos.z);
-			//printf("(in collDetectRectGrid): Targetpos: [%g,%g,%g]\n", targetPos.x, targetPos.y, targetPos.z);
-			//printf("(in collDetectRectGrid): Collision pos: [%g,%g,%g]\n", collCheck.collPoint.x, collCheck.collPoint.y, collCheck.collPoint.z);
-			//printf("(in collDetectRectGrid): Collision triangle: %u\n", collCheck.collIndex);
-			//printf("(in collDetectRectGrid): Cube: %u\n", currCube);
-			//printf("(in collDetectRectGrid): Compartment: %u\n", compartment);
-			//printf("(in collDetectRectGrid): FiberInside: %u\n", fiberInside);
+			printf("(in collDetectRectGrid): Collision!\n");
+			printf("(in collDetectRectGrid): Startpos: [%g,%g,%g]\n", startPos.x, startPos.y, startPos.z);
+			printf("(in collDetectRectGrid): Targetpos: [%g,%g,%g]\n", targetPos.x, targetPos.y, targetPos.z);
+			printf("(in collDetectRectGrid): Collision pos: [%g,%g,%g]\n", collCheck.collPoint.x, collCheck.collPoint.y, collCheck.collPoint.z);
+			printf("(in collDetectRectGrid): Collision triangle: %u\n", collCheck.collIndex);
+			printf("(in collDetectRectGrid): Cube: %u\n", currCube);
+			printf("(in collDetectRectGrid): Compartment: %u\n", compartment);
+			printf("(in collDetectRectGrid): FiberInside: %u\n", fiberInside);
 			
 			if (u<=u_max-(u_max-u_min)*k_permeability){		// The spin does not permeate the membrane
 				endPos = reflectPos(startPos, targetPos, collCheck.collPoint, collCheck.collIndex, collCheck.collisionType);
@@ -687,6 +697,9 @@ __device__ float3 collDetectRectGrid(float3 startPos, float3 targetPos, float u,
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 __device__ float3 collDetect(float3 oPos, float3 pos, float u, uint8 &compartment, uint16 &fiberInside, uint* trianglesInCubes, uint* cubeCounter){
 
+
+	printf("collDetect ....");
+
 	//if (k_triSearchMethod == 0){
 		return collDetectRectGrid(oPos,pos,u,compartment,fiberInside,trianglesInCubes,cubeCounter);
 	//} else {
@@ -703,25 +716,33 @@ __device__ float3 collDetect(float3 oPos, float3 pos, float u, uint8 &compartmen
 //			the functions above. Computes the spin movement and signal for each spin by
 //			performing the below computation in parallel on multiple threads.
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
-__global__ void integrate(
-				float3* oldPos,
+__global__ void integrate(float3* oldPos,
 				uint2* oldSeed,
 				//float4* spinInfo,
 				spinData* spinInfo,
 				float deltaTime,
 				float permeability,
-				int numBodies,
+				uint numBodies,
 				float gradX, float gradY, float gradZ,
 				float phaseConstant,
-				uint iterations, uint* trianglesInCubes, uint* cubeCounter){
+				uint iterations, uint* trianglesInCubes, uint* cubeCounter)
+{
 
-	int index = __mul24(blockIdx.x,blockDim.x) + threadIdx.x;
 
-	if (index>=numBodies)
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
+	printf("KERNEL\n\n\n\n\n\n");
+	//k_permeability = permeability;
+	//k_deltaTime = deltaTime;
+	 
+	
+	if (index>=numBodies){
+	printf("index>=numBodies\n\n");
 	return;
-
-	float3 pos = oldPos[index];								// pos = particle position
+}
+	float3 pos = make_float3(2.5,3.1,4.98);								// pos = particle position
 	uint2 seed2 = oldSeed[index];								// seed4 = seed values (currently only using first 2 values)
+	printf("pos: %f; %f; %f; \n seed2:  %u; %u;\n\n ",pos.x,pos.y,pos.z,seed2.x,seed2.y);
+	printf("k_reflectionType: %u, k_triSearchMethod: %u, k_numCubes: %u, k_totalNumCubes: %u, k_maxTrianglesPerCube: %u, k_cubeLength: %u, k_nFibers: %u, k_nCompartments: %u, k_deltaTime: %u\n\n ",k_reflectionType,k_triSearchMethod,k_numCubes,k_totalNumCubes,k_maxTrianglesPerCube,k_cubeLength,k_nFibers,k_nCompartments, k_deltaTime);
 	//float signalMagnitude = spinInfo[index].signalMagnitude;
 	//float signalPhase = spinInfo[index].signalPhase;
 	uint8 compartment = spinInfo[index].compartmentType;
@@ -753,34 +774,35 @@ __global__ void integrate(
 		// for the random walk.
 		// myRandn also returns a bonus uniformly distributed PRN as a side-effect of the 
 		// Box-Muller transform used to generate normally distributed PRNs.
+		printf("Random walk %u\n\n",i);
 		float u;
 		float3 brnMot;
 		//myRandn(rseed, brnMot.y, brnMot.x, brnMot.z, u);
 		myRandn(seed2, brnMot.y, brnMot.x, brnMot.z, u);
 		float3 oPos = pos;						// Store a copy of the old position before we update it
-
+		printf("k_stdDevs[%u]: %f \n\n",compartment,k_stdDevs[compartment]);
 		pos.x += brnMot.x * k_stdDevs[compartment];
 		pos.y += brnMot.y * k_stdDevs[compartment];
 		pos.z += brnMot.z * k_stdDevs[compartment];
 
 		
-
+		printf("In kernel 1\n");
 
 		// Test
 		if (index == 0){
-			//printf("i = %u\n", i);
-			//printf("index: %u\n", index);
-			//printf("oPos: [%g,%g,%g]\n", oPos.x,oPos.y,oPos.z);
-			//printf("pos: [%g,%g,%g]\n", pos.x,pos.y,pos.z);
-			//printf("Compartment: %u\n", compartment);
-			//printf("Fiberinside: %u\n", fiberInside);
-			//printf("Signal magnitude: %g\n", signalMagnitude);
-			//printf("Signal phase: %g\n", signalPhase);
-			//printf("u (before assignment): %g\n", u);
+			/*printf("i = %u\n", i);
+			printf("index: %u\n", index);
+			printf("oPos: [%g,%g,%g]\n", oPos.x,oPos.y,oPos.z);
+			printf("pos: [%g,%g,%g]\n", pos.x,pos.y,pos.z);
+			printf("Compartment: %u\n", compartment);
+			printf("Fiberinside: %u\n", fiberInside);
+			printf("Signal magnitude: %g\n", signalMagnitude);
+			printf("Signal phase: %g\n", signalPhase);
+			printf("u (before assignment): %g\n", u);
 			
-			//printf("rseed after: [%u,%u]\n", rseed[0], rseed[1]);
-			//printf("[%g,%g,%g,%g,%g,%g,%u,%u]\n", oPos.x, oPos.y, oPos.z, pos.x, pos.y, pos.z, compartment, fiberInside);
-
+			printf("rseed after: [%u,%u]\n", rseed[0], rseed[1]);
+			printf("[%g,%g,%g,%g,%g,%g,%u,%u]\n", oPos.x, oPos.y, oPos.z, pos.x, pos.y, pos.z, compartment, fiberInside);
+*/
 		
 			//oPos.x = 0.0; oPos.y = 0.0; oPos.z = 0.01;		// oPos.x = 0.7; oPos.y = 0.0; oPos.z = 0.01;
 			//pos.x = 0.1; pos.y = 0.2; pos.z = -0.01;		// pos.x = 0.632; pos.y = 0.067; pos.z = 0.01;
@@ -791,9 +813,10 @@ __global__ void integrate(
 		}
 
 		// Do a collision detection for the path the particle is trying to take
+		printf("trianglesInCubes[%u]: %u \t cubeCounter[%u]: %u",index,trianglesInCubes[index],index,cubeCounter[index]);
 		pos = collDetect(oPos,pos,u,compartment,fiberInside,trianglesInCubes,cubeCounter);
 
-		
+		printf("In kernel 2\n");
 		// Don't let the spin leave the volume
 		if (pos.x > 1.0f)  { pos.x = 1.0f; /*signalMagnitude = 0.0;*/ }
 		else if (pos.x < -1.0f) { pos.x = -1.0f; /*signalMagnitude = 0.0;*/ }
@@ -805,10 +828,12 @@ __global__ void integrate(
 		// Update MR signal magnitude
 		//signalMagnitude += -signalMagnitude/k_T2Values[compartment]*k_deltaTime;
 		spinInfo[index].signalMagnitude += -spinInfo[index].signalMagnitude/k_T2Values[compartment]*k_deltaTime;
-		
+				printf("In kernel 3\n");
 		// Update MR signal phase
 		//signalPhase += (gradX * pos.x + gradY * pos.y + gradZ * pos.z) * phaseConstant;
 		spinInfo[index].signalPhase += (gradX * pos.x + gradY * pos.y + gradZ * pos.z) * phaseConstant;
+		//printf("updated spin signal phase : %f",spinInfo[index].signalPhase);
+
 
 	}
 
@@ -829,5 +854,8 @@ __global__ void integrate(
 	spinInfo[index].insideFiber = fiberInside;
 		
 }
+
+
+
 
 #endif

@@ -9,6 +9,6 @@
 
 #define HALO_DISTANCE 1.1f
 
-#define CUDA2 1
+#define CUDA7 7.5
 
 

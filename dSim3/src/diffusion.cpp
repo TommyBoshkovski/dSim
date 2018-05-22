@@ -5,14 +5,26 @@
 
 #include <iostream>
 #include <libconfig.h++>
-#include <cutil.h>
 #include <string.h>
+#include <unistd.h>
 #include <GL/glew.h>
 #include <GL/glut.h>
 #include <GL/freeglut.h>
 #include <math.h>
 #include <cstdlib>
 #include <cstdio>
+#include <helper_functions.h>
+#include <helper_cuda.h>
+#include <helper_cuda_gl.h>
+#include <helper_cuda_drvapi.h>
+#include <helper_image.h>
+#include <helper_math.h>
+#include <helper_string.h>
+#include <helper_timer.h>
+#include <ctime>
+
+
+
 
 #include <jama_svd.h>
 #include <jama_eig.h>
@@ -22,7 +34,10 @@
 #include "renderSpins.h"
 #include "paramgl.h"
 #include "spinSystem.h"
+#include "GLError.h"
 
+
+using namespace std;
 ///////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
 // Define global variables
@@ -44,8 +59,7 @@ float myelinAlpha = 0.3f;
 float gliaAlpha = 0.5f;
 bool bPause = false;
 SpinRenderer::DisplayMode displayMode = SpinRenderer::SPIN_SPHERES;
-SpinRenderer *renderer = 0;
-
+SpinRenderer *renderer;
 //////////////////////////////////////////////////////////////////////////////
 // Define a new data structure for storing the magnetic gradient sequence.
 // The gradients will be organized as a linked list, each link of type gradStruct.
@@ -137,7 +151,7 @@ void readInputs(int argc, char** argv, char *configFilename, int *pstepsPerUpdat
 		cout << "Loading " << configFilename << "..." << endl;
 		cfg.readFile(configFilename);
 	} catch(FileIOException){
-		cout << "File IO failed." << endl;
+		cout << "File config IO failed." << endl;
 	} catch(ParseException){
 		cout << "Parse failed." << endl;
 	}
@@ -182,7 +196,7 @@ void readInputs(int argc, char** argv, char *configFilename, int *pstepsPerUpdat
 		gradStruct *prevGrad = NULL, *curGrad = NULL;
 		while (!feof(gradsFilePtr)){
 			int nScan = fscanf(gradsFilePtr, "%g %g %g %g %g %g", &ld, &bd, &ro, &gx, &gy, &gz);	// nScan is the number of items successfully read
-			if (nScan == 6){									// We have read a line that can specify a gradient
+                               if (nScan == 6){									// We have read a line that can specify a gradient
 				numGrads++;
 				curGrad = new gradStruct;
 				curGrad->lDelta = ld;
@@ -208,7 +222,7 @@ void readInputs(int argc, char** argv, char *configFilename, int *pstepsPerUpdat
 	cfg.lookupValue("fibers.fiberFile", fiberFileConst);
 	fiberFile = (char *)malloc((strlen(fiberFileConst)+1)*sizeof(char));
 	strcpy(fiberFile, fiberFileConst);
-	//printf("(In readInputs): Reading fibers from file (%s)\n",fiberFile);
+	printf("(In readInputs): Reading fibers from file (%s)\n",fiberFileConst);
 
 
 	///////////////////////////////////////////////////////////////////////////////////////
@@ -216,24 +230,24 @@ void readInputs(int argc, char** argv, char *configFilename, int *pstepsPerUpdat
 	///////////////////////////////////////////////////////////////////////////////////////
 	
 	// See if the command line specifies whether we should display graphics	
-	if(cutCheckCmdLineFlag(argc, (const char**) argv, "disp")){
+	if(checkCmdLineFlag(argc, (const char**) argv, "disp")){
 		useDisplay = true;
 	}	
-	else if(cutCheckCmdLineFlag(argc, (const char**) argv, "nodisp")){
+	else if(checkCmdLineFlag(argc, (const char**) argv, "nodisp")){
 		useDisplay = false;
 	}
 
-	if(cutCheckCmdLineFlag(argc, (const char**) argv, "gpu")){
+	if(checkCmdLineFlag(argc, (const char**) argv, "gpu")){
 		useGpu = true;
 	}	
-	else if(cutCheckCmdLineFlag(argc, (const char**) argv, "cpu")){
+	else if(checkCmdLineFlag(argc, (const char**) argv, "cpu")){
 		useGpu = false;
 	}
 
-	if(cutCheckCmdLineFlag(argc, (const char**) argv, "w")){
+	if(checkCmdLineFlag(argc, (const char**) argv, "w")){
 		writeOut = true;
 	}	
-	else if(cutCheckCmdLineFlag(argc, (const char**) argv, "nw")){
+	else if(checkCmdLineFlag(argc, (const char**) argv, "nw")){
 		writeOut = false;
 	}
 
@@ -242,27 +256,27 @@ void readInputs(int argc, char** argv, char *configFilename, int *pstepsPerUpdat
 	int cmdVali = NAN;
 	char *cmdVals;
 
-        if(cutGetCmdLineArgumenti( argc, (const char**) argv, "stepsPerUpdate", &cmdVali)){
+        if(cmdVali = getCmdLineArgumentInt( argc, (const char**) argv, "stepsPerUpdate")){
 		*pstepsPerUpdate = cmdVali;
         }
 
-        if(cutGetCmdLineArgumenti( argc, (const char**) argv, "numSpins", &cmdVali)){
+        if(cmdVali = getCmdLineArgumentInt( argc, (const char**) argv, "numSpins")){
 		*pnumSpins = cmdVali;
         }
 
-	if(cutGetCmdLineArgumenti( argc, (const char**) argv, "searchMethod", &cmdVali)){
+	if(cmdVali = getCmdLineArgumentInt( argc, (const char**) argv, "searchMethod")){
 		*psearchMethod = cmdVali;
         }
 
-        if(cutGetCmdLineArgumentf( argc, (const char**) argv, "perm", &cmdValf)){
+        if(cmdValf = getCmdLineArgumentFloat( argc, (const char**) argv, "perm")){
 		*ppermeability = cmdValf;
         }
 
-	if(cutGetCmdLineArgumentf( argc, (const char**) argv, "startBox", &cmdValf)){
+	if(cmdValf = getCmdLineArgumentFloat( argc, (const char**) argv, "startBox")){
 		*pstartBoxSize = cmdValf;
         }
 
-	if(cutGetCmdLineArgumentstr( argc, (const char**) argv, "fiberFile", &cmdVals)){
+	if(getCmdLineArgumentString( argc, (const char**) argv, "fiberFile", &cmdVals)){
 		fiberFile = (char *)malloc((strlen(cmdVals)+1)*sizeof(char));
 		strcpy(fiberFile, cmdVals);
 	}
@@ -298,6 +312,7 @@ void computeTensor(uint index, double tensors[][3][3], double eigenvecs[][3][3],
 	///////////////////////////////////////////////////////////////////
 	for (uint j=0; j<numGrads; j++){
 		norm = sqrt(gradientDataResults[j*numOutputs+3]*gradientDataResults[j*numOutputs+3]+gradientDataResults[j*numOutputs+4]*gradientDataResults[j*numOutputs+4]+gradientDataResults[j*numOutputs+5]*gradientDataResults[j*numOutputs+5]);
+		printf("norm=%f\n",norm);
 		printf("Signal for gradient %u and compartment %i: %g\n", j+1, index-1, gradientDataResults[j*numOutputs+6+index]);
 		if (norm==0){
 			gradDir[j*3+0] = 0;
@@ -309,7 +324,9 @@ void computeTensor(uint index, double tensors[][3][3], double eigenvecs[][3][3],
 			gradDir[j*3+0] = (double) gradientDataResults[j*numOutputs+3]/norm;
 			gradDir[j*3+1] = (double) gradientDataResults[j*numOutputs+4]/norm;
 			gradDir[j*3+2] = (double) gradientDataResults[j*numOutputs+5]/norm;
+			printf("gradDir[1] = %f gradDir[2] = %f gradDir[3] = %f\n", gradDir[j*3+0],gradDir[j*3+1],gradDir[j*3+2]);
 			logDw[numNonZeroGrads] = log(gradientDataResults[j*numOutputs+6+index]+offset);
+			printf("logDw = %g\n",logDw);
 			nonZeroGradsInd[numNonZeroGrads] = j;
 			numNonZeroGrads++;
 		}
@@ -365,12 +382,14 @@ void computeTensor(uint index, double tensors[][3][3], double eigenvecs[][3][3],
 			S[p][q] = floor(S[p][q]*1000000.0f + 0.5)/1000000.0f;
 		}
 	}
-
+	printf("\n");
 	for (int p=0; p<U.dim1(); p++){
 		for(int q=0; q<U.dim2(); q++){
 			U[p][q] = floor(U[p][q]*1000000.0f + 0.5)/1000000.0f;
 		}
 	}
+
+		printf("\n");
 
 	for (int p=0; p<V.dim1(); p++){
 		for(int q=0; q<V.dim2(); q++){
@@ -378,30 +397,31 @@ void computeTensor(uint index, double tensors[][3][3], double eigenvecs[][3][3],
 		}
 	}
 
+	printf("\n");
 	// Find the inverse matrix of S
 	TNT::Array2D<double> S_inv(S.dim2(),S.dim1());
-	for (int n=0; n<S.dim1(); n++){
-		for (int m=0; m<S.dim2(); m++){
-			if (S[n][m] == 0){
-				S_inv[m][n] = 0;
+	for (int pp=0; pp<S.dim1(); pp++){
+		for (int qq=0; qq<S.dim2(); qq++){
+			if (S[pp][qq] == 0){
+				S_inv[qq][pp] = 0;
 			} else {
-				S_inv[m][n] = 1/S[n][m];
+				S_inv[qq][pp] = 1/S[pp][qq];
 			}
 		}
 	}
 
 	// Transpose U and V (they are real, so we don't need to take complex conjugates)
 	TNT::Array2D<double> Ustar(U.dim2(),U.dim1());
-	for (int n=0; n<U.dim1(); n++){
-		for (int m=0; m<U.dim2(); m++){
-			Ustar[m][n] = U[n][m];
+	for (int pp=0; pp<U.dim1(); pp++){
+		for (int qq=0; qq<U.dim2(); qq++){
+			Ustar[qq][pp] = U[pp][qq];
 		}
 	}
 
 	TNT::Array2D<double> Vstar(V.dim2(),V.dim1());
-	for (int n=0; n<V.dim1(); n++){
-		for (int m=0; m<V.dim2(); m++){
-			Vstar[m][n] = V[n][m];
+	for (int pp=0; pp<V.dim1(); pp++){
+		for (int qq=0; qq<V.dim2(); qq++){
+			Vstar[qq][pp] = V[pp][qq];
 		}
 	}
 
@@ -575,11 +595,13 @@ void update(){
 				psystem->setGradient(nullG);
 				printf("Turning off gradient!\n");
 			} else if (curNumUpdates==curBigDelta+curLittleDelta+curReadout){		// Measure MR signal for each compartment (and total signal) and save it
-				//mrSig = psystem->getMrSignal();
+				mrSig = psystem->getMrSignal();
+				printf("mrSig = %g", mrSig);
 				psystem->getMrSignal(mrSigComp);
 				//gradientDataResults[(currentRun-1)*7+6] = mrSig;
 				for (uint c=0; c<psystem->getNumCompartments()+1; c++){
 					gradientDataResults[(currentRun-1)*numOutputs+6+c] = mrSigComp[c];
+					//printf("mrSigComp[%d] = %g",c, mrSigComp[c]);
 				}
 				//gradientDataResults[currentRun*numOutputs-1] = mrSig;
 			}
@@ -589,6 +611,7 @@ void update(){
 			curNumUpdates = 0;				// Reset the curNumUpdates counter
 			if (curGrad == NULL){				// We are at the end of the DW gradient sequence
 				done = true;
+				printf("End of the DW gradient sequence\n");
 			} else{
 				/////////////////////////////////////////////////////
 				// Some gradients remain, update curG, curLittleDelta,
@@ -667,7 +690,7 @@ void update(){
 			if(outFilePtr!=NULL & writeOut){
 				time_t now = time(NULL);
 				fprintf(outFilePtr,"\n%% * * * %s", ctime(&now));
-				fprintf(outFilePtr, "if (exist('m','var')), m=m+1; else, m=1; end\n");
+				fprintf(outFilePtr, "if (exist('m','var')) m=m+1; else m=1; end\n");
 				fprintf(outFilePtr, "s=0;\n");
 				fprintf(outFilePtr, "\n%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% \n%% Input parameters \n%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n");
 				fprintf(outFilePtr, "numSpins(m) = %u;\n", numSpins);
@@ -734,6 +757,7 @@ void update(){
 	//printf("Test\n");
 	psystem->updateSpins(timeStep,stepsPerUpdate);
 	//printf("Test2\n");
+	//glutPostRedisplay();
 }
 
 
@@ -755,7 +779,7 @@ void initGL(){
 	glEnable(GL_LIGHT0);
 	glEnable(GL_COLOR_MATERIAL);
 	glColorMaterial(GL_FRONT_AND_BACK,GL_AMBIENT_AND_DIFFUSE);
-	glutReportErrors();
+
 }
 
 
@@ -824,6 +848,7 @@ void display(){
 		glScalef(1/ell1,1/ell2,1/ell3);
 		glRotatef(-theta,0,-ez,ey);
 		gluDeleteQuadric(obj);
+		
 	} else {
 		/////////////////////////////////////////////////////////
 		// If gradient runs are not finished, we render the spins.
@@ -868,7 +893,8 @@ void display(){
 	glDisable(GL_BLEND);
 	
 	glutSwapBuffers();
-	glutReportErrors();
+
+	//glutPostRedisplay();
 }
 
 
@@ -969,14 +995,14 @@ void key(unsigned char key, int /*x*/, int /*y*/)
     case '\033':
     case 'q':
         exit(0);
-        break;
+        break; 
     case 'd':
         psystem->dumpGrid();
         break;
     case 'u':
         psystem->dumpSpins(0, 1);
         break;
-
+/*
     case 'r':
         renderSpins = !renderSpins;
         break;
@@ -997,7 +1023,7 @@ void key(unsigned char key, int /*x*/, int /*y*/)
             psystem->colorSphere(pos, 0.2, color); 
         }
         break;
-
+/*
     case 'w':
         wireframe = !wireframe;
         break;
@@ -1020,7 +1046,8 @@ void key(unsigned char key, int /*x*/, int /*y*/)
         break;
     case 'c':
 	renderCubes = !renderCubes;	
-	break;*/
+	break;
+*/
     }
 
     glutPostRedisplay();
@@ -1068,17 +1095,17 @@ using namespace std;
 int main( int argc, char** argv){
 
 	printf("Start diffusion run\n");
-
+	clock_t begin = clock();
 	FILE *fiberFilePtr;
 
 	///////////////////////////////////////////////////////////////////////////////////////
 	// The name of the configuration file is assumed to be sim.cfg unless another name is 
-	// detected using the function cutGetCmdLineArgumentstr.
+	// detected using the function getCmdLineArgumentString.
 	// To use this function we need to use the flag -lcutil in our compile statement
 	// See description at stingnet.com
 	///////////////////////////////////////////////////////////////////////////////////////
 	char *configFilename;
-	if (!cutGetCmdLineArgumentstr(argc, (const char**) argv, "config", &configFilename)){
+	if (!getCmdLineArgumentString(argc, (const char**) argv, "config", &configFilename)){
 		configFilename = "sim.cfg";
 	}
 
@@ -1108,6 +1135,7 @@ int main( int argc, char** argv){
 	///////////////////////////////////////////////////////////////////////////////////////
 	if (useDisplay){
 		glutInit(&argc, argv);
+		//glutReportErrors();
 		glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
 		glutInitWindowSize(640, 480);
 		glutCreateWindow("Diffusion Simulator");
@@ -1115,8 +1143,7 @@ int main( int argc, char** argv){
 	}
 
 	// Create a new spin system
-	psystem = new SpinSystem(numSpins, useGpu, spaceScale, gyroMagneticRatio, useDisplay, triSearchMethod, reflectionType, extraAdc, myelinAdc, intraAdc, permeability, 
-				extraT2, myelinT2, intraT2, timeStep, startBoxSize);
+	psystem = new SpinSystem(numSpins, useGpu, spaceScale, gyroMagneticRatio, useDisplay, triSearchMethod, reflectionType, extraAdc, myelinAdc, intraAdc, permeability,extraT2, myelinT2, intraT2, timeStep, startBoxSize);
 	// Define fibers for the spin system
 	psystem->initFibers(fiberFile);
 	// Assign triangles to each cube
@@ -1158,7 +1185,7 @@ int main( int argc, char** argv){
 		// We render the simulation on the computer screen. The computation
 		// takes place inside the display function.
 		////////////////////////////////////////////////////////////////
-		renderer = new SpinRenderer;
+		renderer = new SpinRenderer();
 		renderer->setSpinRadius(0.005);
 		renderer->setColorBuffer(psystem->getColorBuffer());
 		initMenus();
@@ -1175,10 +1202,13 @@ int main( int argc, char** argv){
 		///////////////////////////////////////////////////////////////
 		while(!computedOutput){    
 			update();
+			psystem->updateSpins(timeStep,1);
 		}
 		//exit(0);
 	}
-
+	clock_t end = clock();
+  double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
+	cout<<elapsed_secs;
 	if (psystem) delete psystem;
 	return 0;
 }

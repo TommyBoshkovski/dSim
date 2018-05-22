@@ -33,14 +33,15 @@
 #include <math.h>
 #include <assert.h>
 #include <stdio.h>
-
+#include <iostream>
 #include "renderSpins.h"
 #include "shaders.h"
+#include "GLError.h"
 
 #ifndef M_PI
 #define M_PI    3.1415926535897932384626433832795
 #endif
-
+using namespace std;
 SpinRenderer::SpinRenderer()
 : m_pos(0),
   m_numSpins(0),
@@ -81,19 +82,19 @@ void SpinRenderer::_drawPoints()
         glBegin(GL_POINTS);
         {
             int k = 0;
-		//printf("*\n*\nm_numSpins: %u\n*\n*\n", m_numSpins);
+		printf("*\n*\nm_numSpins: %u\n*\n*\n", m_numSpins);
             for (int i = 0; i < m_numSpins; ++i)
             {
-		//printf("k: %u\n", k);
-		//printf("&m_pos[%u]: %i\n", k, &m_pos[k]);
-		//printf("m_pos[%u]: %g\n", k, m_pos[k]);
+		printf("k: %u\n", k);
+		printf("&m_pos[%u]: %i\n", k, &m_pos[k]);
+		printf("m_pos[%u]: %g\n", k, m_pos[k]);
                 glVertex3fv(&m_pos[k]);
                 //k += 4;
 		k += 3;
             }
         }
         glEnd();
-	//printf("Drawing points without m_vbo!\n");
+	printf("Drawing points without m_vbo!\n");
     }
     else
     {
@@ -132,20 +133,31 @@ void SpinRenderer::display(DisplayMode mode /* = SPIN_POINTS */)
     default:
     case SPIN_SPHERES:
         glEnable(GL_POINT_SPRITE_ARB);
-        glTexEnvi(GL_POINT_SPRITE_ARB, GL_COORD_REPLACE_ARB, GL_TRUE);
-        glEnable(GL_VERTEX_PROGRAM_POINT_SIZE_NV);
-        glDepthMask(GL_TRUE);
-        glEnable(GL_DEPTH_TEST);
-
+	glTexEnvi(GL_POINT_SPRITE_ARB, GL_COORD_REPLACE_ARB, GL_TRUE);
+	glEnable(GL_VERTEX_PROGRAM_POINT_SIZE_NV);
+	//glDepthMask(GL_FALSE);
+	//glEnable(GL_DEPTH_TEST);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        glEnable(GL_BLEND);
+        glDepthMask(GL_FALSE);
         glUseProgram(m_program);
+	
         glUniform1f( glGetUniformLocation(m_program, "pointScale"), m_window_h / tan(m_fov*0.5*M_PI/180.0) );
+
         glUniform1f( glGetUniformLocation(m_program, "pointRadius"), m_spinRadius );
         //here
+
+	glActiveTextureARB(GL_TEXTURE0_ARB);
+//        glBindTexture(GL_TEXTURE_3D, m_texture);
+
+
         glColor3f(1, 1, 1);
         _drawPoints();
-
         glUseProgram(0);
+
         glDisable(GL_POINT_SPRITE_ARB);
+	glDisable(GL_BLEND);
+        glDepthMask(GL_TRUE);
         break;
     }
 }
@@ -153,14 +165,18 @@ void SpinRenderer::display(DisplayMode mode /* = SPIN_POINTS */)
 GLuint
 SpinRenderer::_compileProgram(const char *vsource, const char *fsource)
 {
+
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
     GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
 
     glShaderSource(vertexShader, 1, &vsource, 0);
     glShaderSource(fragmentShader, 1, &fsource, 0);
     
+
+GLint status;
     glCompileShader(vertexShader);
     glCompileShader(fragmentShader);
+
 
     GLuint program = glCreateProgram();
 
@@ -186,8 +202,9 @@ SpinRenderer::_compileProgram(const char *vsource, const char *fsource)
 
 void SpinRenderer::_initGL()
 {
+//    cout<<"compiling  Program ..."<<endl;
     m_program = _compileProgram(vertexShader, spherePixelShader);
-
+//    cout<<"compiled Program"<<endl;
     glClampColorARB(GL_CLAMP_VERTEX_COLOR_ARB, GL_FALSE);
     glClampColorARB(GL_CLAMP_FRAGMENT_COLOR_ARB, GL_FALSE);
 }

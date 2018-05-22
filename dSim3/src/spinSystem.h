@@ -7,31 +7,10 @@
 #include <math.h>
 #include "RTree.h"
 #include "dSimDataTypes.h"
+#include <vector_types.h>
 
 typedef unsigned int uint;
 
-typedef struct _int3
-{
-	int x;
-	int y;
-	int z;
-	
-}int3;
-
-typedef struct _uint3
-{
-	uint x;
-	uint y;
-	uint z;
-	
-}uint3;
-
-typedef struct _float3
-{
-	float x;
-	float y;
-	float z;
-}float3;
 
 typedef struct _collResult
 {
@@ -44,80 +23,25 @@ typedef struct _collResult
 
 
 // Some simple inline vector ops for float3's, to mimick those found in cudautil_math.h.
-inline float3 make_float3(float x, float y, float z){
-	float3 p;
-	p.x=x; p.y=y; p.z=z;
-	return p;
-}
+
 // addition
-inline float3 operator+(float3 a, float3 b){
-    return make_float3(a.x + b.x, a.y + b.y, a.z + b.z);
-}
-inline float3 operator+(float3 a, float s){
-    return make_float3(a.x + s, a.y + s, a.z + s);
-}
-inline float3 operator+(float s, float3 a){
-    return make_float3(a.x + s, a.y + s, a.z + s);
-}
-inline void operator+=(float3 &a, float3 b){
-    a.x += b.x; a.y += b.y; a.z += b.z;
-}
+
+
 // subtract
-inline float3 operator-(float3 a, float3 b){
-    return make_float3(a.x - b.x, a.y - b.y, a.z - b.z);
-}
-inline void operator-=(float3 &a, float3 b){
-    a.x -= b.x; a.y -= b.y; a.z -= b.z;
-}
+
 // multiply
-inline float3 operator*(float3 a, float3 b){
-    return make_float3(a.x * b.x, a.y * b.y, a.z * b.z);
-}
-inline float3 operator*(float3 a, float s){
-    return make_float3(a.x * s, a.y * s, a.z * s);
-}
-inline float3 operator*(float s, float3 a){
-    return make_float3(a.x * s, a.y * s, a.z * s);
-}
-inline void operator*=(float3 &a, float s){
-    a.x *= s; a.y *= s; a.z *= s;
-}
-// divide
-inline float3 operator/(float3 a, float3 b){
-    return make_float3(a.x / b.x, a.y / b.y, a.z / b.z);
-}
-inline float3 operator/(float3 a, float s){
-    float inv = 1.0f / s;
-    return a * inv;
-}
-inline float3 operator/(float s, float3 a){
-    float inv = 1.0f / s;
-    return a * inv;
-}
-inline void operator/=(float3 &a, float s){
-    float inv = 1.0f / s;
-    a *= inv;
-}
+
 // dot product
-inline float dot(float3 a, float3 b){ 
-    return a.x * b.x + a.y * b.y + a.z * b.z;
-}
 // cross product
-inline float3 cross(float3 a, float3 b){ 
-    return make_float3(a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x); 
-}
+
 // length
-inline float length(float3 v){
-    return sqrtf(dot(v, v));
-}
+
 // floor
 inline float3 floor(const float3 v){
     return make_float3(floor(v.x), floor(v.y), floor(v.z));
 }
 // min
-inline float3 fminf(float3 a, float3 b){
-   return make_float3(fminf(a.x,b.x), fminf(a.y,b.y), fminf(a.z,b.z));
-}
+
 inline float3 fminf(float s, float3 a){
    return make_float3(fminf(a.x,s), fminf(a.y,s), fminf(a.z,s));
 }
@@ -125,9 +49,7 @@ inline float3 fminf(float3 a, float s){
    return make_float3(fminf(a.x,s), fminf(a.y,s), fminf(a.z,s));
 }
 // max
-inline float3 fmaxf(float3 a, float3 b){
-   return make_float3(fmaxf(a.x,b.x), fmaxf(a.y,b.y), fmaxf(a.z,b.z));
-}
+
 inline float3 fmaxf(float3 a, float s){
    return make_float3(fmaxf(a.x,s), fmaxf(a.y,s), fmaxf(a.z,s));
 }
@@ -166,6 +88,7 @@ class SpinSystem {
 		
 
 		void cpuIntegrateSystem(float deltaTime, /*float intraAdc, float extraAdc, float myelinAdc, float gliaAdc,*/ float3 magneticGradient, float phaseConstant);
+		
 		void cpuIntegrate(int spinIndex, float3 magneticGradient, float phaseConstant,/* float intraStdDev, float extraStdDev, float myelinStdDev, float gliaStdDev,*/ float deltaTime/*, float radPrSq*/);
 		unsigned int getColorBuffer(){ return m_colorVBO; }
 		void setColorFromSignal();
@@ -299,6 +222,7 @@ class SpinSystem {
 		spinData* m_dSpins[2];			// Test
 		uint* m_dCubeCounter;			// Test
 		uint* m_dTrianglesInCubes;		// Test
+		//uint* m_dNumSpins;
 		//uint* m_dTrgls;			// Test
 		uint *m_dTriInfo;
 		float* m_dVertices;			// Test

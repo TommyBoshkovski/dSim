@@ -1,30 +1,3 @@
-#include <cstdlib>
-#include <cstdio>
-#include <string.h>
-#include <GL/glut.h>
-#include <helper_functions.h>
-#include <helper_cuda.h>
-#include <helper_cuda_gl.h>
-#include <helper_cuda_drvapi.h>
-#include <helper_image.h>
-#include <helper_math.h>
-#include <helper_string.h>
-#include <helper_timer.h>
-#include <cuda_gl_interop.h>
-
-//#include "spinKernel.cu"
-#include "radixsort.cu"
-//#include "dSimDataTypes.h"
-
-
-#define PI 3.14159265358979f
-#define TWOPI 6.28318530717959f
-
-
-
-
-
-
 ///////////////////////////////////////////////////////////////////////////////////////
 // File name:		spinKernel.cu
 // Description:		Kernel for spin computations using GPU
@@ -37,11 +10,11 @@
 #include <math.h>
 #include <helper_math.h>
 #include "math_constants.h"
-#include "cuda.h"
 #include "options.h"
 #include "dSimDataTypes.h"
 
-
+#define PI 3.14159265358979f
+#define TWOPI 6.28318530717959f
 
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -56,26 +29,18 @@ texture<float,1,cudaReadModeElementType> texRTreeArray;
 texture<uint,1,cudaReadModeElementType> texCombinedTreeIndex;
 texture<uint,1,cudaReadModeElementType> texTriInfo;
 
-__device__ uint k_reflectionType;
-__device__ uint k_triSearchMethod;
-__device__ uint k_numCubes;
-__device__ uint k_totalNumCubes;
-__device__ uint k_maxTrianglesPerCube;
-__device__ float k_cubeLength;
-__device__ uint k_nFibers; 
-__device__ uint k_nCompartments;
-__device__ float k_permeability;
-__device__ float k_deltaTime;
-__device__ float *k_T2Values;
-__device__ float *k_stdDevs;
-
-__device__ float gradientX;
-__device__ float gradientY;
-__device__ float gradientZ;
-__device__ uint m_dNumSpins;
-__device__ int interations;
-																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																					
-
+__constant__ uint k_reflectionType;
+__constant__ uint k_triSearchMethod;
+__constant__ uint k_numCubes;
+__constant__ uint k_totalNumCubes;
+__constant__ uint k_maxTrianglesPerCube;
+__constant__ float k_cubeLength;
+__constant__ uint k_nFibers; 
+__constant__ uint k_nCompartments;
+__constant__ float k_permeability;
+__constant__ float k_deltaTime;
+__constant__ float *k_T2Values;
+__constant__ float *k_stdDevs;
 
 typedef unsigned int uint;
 
@@ -609,7 +574,7 @@ __device__ float3 collDetectRectGrid(float3 startPos, float3 targetPos, float u,
 
 
 
-	//printf("RectGrid ....");
+
 	float3 endPos = targetPos;
 	collResult collCheck;
 	collCheck.collisionType = 1;
@@ -670,14 +635,14 @@ __device__ float3 collDetectRectGrid(float3 startPos, float3 targetPos, float u,
 
 		if (collCheck.collisionType > 0){
 
-			printf("(in collDetectRectGrid): Collision!\n");
-			printf("(in collDetectRectGrid): Startpos: [%g,%g,%g]\n", startPos.x, startPos.y, startPos.z);
-			printf("(in collDetectRectGrid): Targetpos: [%g,%g,%g]\n", targetPos.x, targetPos.y, targetPos.z);
-			printf("(in collDetectRectGrid): Collision pos: [%g,%g,%g]\n", collCheck.collPoint.x, collCheck.collPoint.y, collCheck.collPoint.z);
-			printf("(in collDetectRectGrid): Collision triangle: %u\n", collCheck.collIndex);
-			printf("(in collDetectRectGrid): Cube: %u\n", currCube);
-			printf("(in collDetectRectGrid): Compartment: %u\n", compartment);
-			printf("(in collDetectRectGrid): FiberInside: %u\n", fiberInside);
+			//printf("(in collDetectRectGrid): Collision!\n");
+			//printf("(in collDetectRectGrid): Startpos: [%g,%g,%g]\n", startPos.x, startPos.y, startPos.z);
+			//printf("(in collDetectRectGrid): Targetpos: [%g,%g,%g]\n", targetPos.x, targetPos.y, targetPos.z);
+			//printf("(in collDetectRectGrid): Collision pos: [%g,%g,%g]\n", collCheck.collPoint.x, collCheck.collPoint.y, collCheck.collPoint.z);
+			//printf("(in collDetectRectGrid): Collision triangle: %u\n", collCheck.collIndex);
+			//printf("(in collDetectRectGrid): Cube: %u\n", currCube);
+			//printf("(in collDetectRectGrid): Compartment: %u\n", compartment);
+			//printf("(in collDetectRectGrid): FiberInside: %u\n", fiberInside);
 			
 			if (u<=u_max-(u_max-u_min)*k_permeability){		// The spin does not permeate the membrane
 				endPos = reflectPos(startPos, targetPos, collCheck.collPoint, collCheck.collIndex, collCheck.collisionType);
@@ -719,7 +684,6 @@ __device__ float3 collDetectRectGrid(float3 startPos, float3 targetPos, float u,
 		targetPos = endPos;
 		excludedTriangle = collCheck.collIndex;					// Make sure we don't detect a collision with the triangle which the particle bounces from
 	}
-	//printf("test\n\n");
 	return endPos;
 }
 
@@ -732,7 +696,7 @@ __device__ float3 collDetectRectGrid(float3 startPos, float3 targetPos, float u,
 __device__ float3 collDetect(float3 oPos, float3 pos, float u, uint8 &compartment, uint16 &fiberInside, uint* trianglesInCubes, uint* cubeCounter){
 
 
-	//printf("collDetect ....");
+	
 
 	//if (k_triSearchMethod == 0){
 		return collDetectRectGrid(oPos,pos,u,compartment,fiberInside,trianglesInCubes,cubeCounter);
@@ -756,25 +720,23 @@ __global__ void integrate(float3* oldPos,
 				spinData* spinInfo,
 				float deltaTime,
 				float permeability,
-				uint numBodies,
-				float gradX, float gradY, float gradZ,
+				int numBodies,
+				float3 grad,
 				float phaseConstant,
-				uint itr, uint* trianglesInCubes, uint* cubeCounter, float* m_dStdDevs, float* m_dT2Values)
+				uint iterations, uint* trianglesInCubes, uint* cubeCounter)
 {
 
-
-	int index = blockIdx.x * blockDim.x + threadIdx.x;
-	//printf("KERNEL\n");
-	 
-
-	if (index>=m_dNumSpins){
-	printf("index>=numBodies\n\n");
+	int d;
+	int index = __mul24(blockIdx.x,blockDim.x) + threadIdx.x;
+	printf("iterations = %u\n",iterations);
+	
+	if (index>=numBodies)
 	return;
-}
-	float3 pos = oldPos[index];//make_float3(1.2,1.2,1.2);//								// pos = particle position
-	uint2 seed2 = oldSeed[index];//make_uint2(1.2,1.2);								// seed4 = seed values (currently only using first 2 values)
-	//printf("pos: %f; %f; %f; \n seed2:  %u; %u;\n\n ",pos.x,pos.y,pos.z,seed2.x,seed2.y);
-	//printf("k_reflectionType: %u, k_triSearchMethod: %u, k_numCubes: %u, k_totalNumCubes: %u, k_maxTrianglesPerCube: %u, k_cubeLength: %u, k_nFibers: %u, k_nCompartments: %f, k_deltaTime: %f\n\n ",k_reflectionType,k_triSearchMethod,k_numCubes,k_totalNumCubes,k_maxTrianglesPerCube,k_cubeLength,k_nFibers,k_nCompartments, k_deltaTime);
+
+	float3 pos = oldPos[index];								// pos = particle position
+	uint2 seed2 = oldSeed[index];								// seed4 = seed values (currently only using first 2 values)
+	//float signalMagnitude = spinInfo[index].signalMagnitude;
+	//float signalPhase = spinInfo[index].signalPhase;
 	uint8 compartment = spinInfo[index].compartmentType;
 	uint16 fiberInside = spinInfo[index].insideFiber;
 	
@@ -796,7 +758,7 @@ __global__ void integrate(float3* oldPos,
 	//rseed[0] = seed2.x;
 	//rseed[1] = seed2.y;
 
-	for (uint i=0; i<interations; i++){
+	for (uint i=0; i<iterations; i++){
 
 		// Take a random walk...
 		// myRandn returns 3 PRNs from a normal distribution with mean 0 and SD of 1. 
@@ -804,36 +766,35 @@ __global__ void integrate(float3* oldPos,
 		// for the random walk.
 		// myRandn also returns a bonus uniformly distributed PRN as a side-effect of the 
 		// Box-Muller transform used to generate normally distributed PRNs.
-		//printf("Random walk %u\n\n",i);
 		float u;
-		float3 brnMot;// = make_float3(22.2,22.2,22.2);
+		float3 brnMot;
 		//myRandn(rseed, brnMot.y, brnMot.x, brnMot.z, u);
 		myRandn(seed2, brnMot.y, brnMot.x, brnMot.z, u);
 		float3 oPos = pos;						// Store a copy of the old position before we update it
-		//printf("k_stdDevs[%u]: %f \n\n",compartment,m_dStdDevs[compartment]);
-		pos.x += brnMot.x * m_dStdDevs[compartment];
-		pos.y += brnMot.y * m_dStdDevs[compartment];
-		pos.z += brnMot.z * m_dStdDevs[compartment];
+
+		pos.x += brnMot.x * k_stdDevs[compartment];
+		pos.y += brnMot.y * k_stdDevs[compartment];
+		pos.z += brnMot.z * k_stdDevs[compartment];
 
 		
-		//printf("In kernel 1\n");
+
 
 		// Test
 		if (index == 0){
-			/*printf("i = %u\n", i);
-			printf("index: %u\n", index);
-			printf("oPos: [%g,%g,%g]\n", oPos.x,oPos.y,oPos.z);
-			printf("pos: [%g,%g,%g]\n", pos.x,pos.y,pos.z);
-			printf("Compartment: %u\n", compartment);
-			printf("Fiberinside: %u\n", fiberInside);
-			printf("Signal magnitude: %g\n", signalMagnitude);
-			printf("Signal phase: %g\n", signalPhase);
-			printf("u (before assignment): %g\n", u);
+			//printf("i = %u\n", i);
+			//printf("index: %u\n", index);
+			//printf("oPos: [%g,%g,%g]\n", oPos.x,oPos.y,oPos.z);
+			//printf("pos: [%g,%g,%g]\n", pos.x,pos.y,pos.z);
+			//printf("Compartment: %u\n", compartment);
+			//printf("Fiberinside: %u\n", fiberInside);
+			//printf("Signal magnitude: %g\n", signalMagnitude);
+			//printf("Signal phase: %g\n", signalPhase);
+			//printf("u (before assignment): %g\n", u);
 			
-			printf("rseed after: [%u,%u]\n", rseed[0], rseed[1]);
-			printf("[%g,%g,%g,%g,%g,%g,%u,%u]\n", oPos.x, oPos.y, oPos.z, pos.x, pos.y, pos.z, compartment, fiberInside);
+			//printf("rseed after: [%u,%u]\n", rseed[0], rseed[1]);
+			//printf("[%g,%g,%g,%g,%g,%g,%u,%u]\n", oPos.x, oPos.y, oPos.z, pos.x, pos.y, pos.z, compartment, fiberInside);
 
-		*/
+		
 			//oPos.x = 0.0; oPos.y = 0.0; oPos.z = 0.01;		// oPos.x = 0.7; oPos.y = 0.0; oPos.z = 0.01;
 			//pos.x = 0.1; pos.y = 0.2; pos.z = -0.01;		// pos.x = 0.632; pos.y = 0.067; pos.z = 0.01;
 			//compartment = 1;
@@ -843,10 +804,9 @@ __global__ void integrate(float3* oldPos,
 		}
 
 		// Do a collision detection for the path the particle is trying to take
-		//printf("trianglesInCubes[%u]: %u \t cubeCounter[%u]: %u",index,trianglesInCubes[index],index,cubeCounter[index]);
 		pos = collDetect(oPos,pos,u,compartment,fiberInside,trianglesInCubes,cubeCounter);
 
-		//printf("In kernel 2\n");
+		
 		// Don't let the spin leave the volume
 		if (pos.x > 1.0f)  { pos.x = 1.0f; /*signalMagnitude = 0.0;*/ }
 		else if (pos.x < -1.0f) { pos.x = -1.0f; /*signalMagnitude = 0.0;*/ }
@@ -857,15 +817,12 @@ __global__ void integrate(float3* oldPos,
 
 		// Update MR signal magnitude
 		//signalMagnitude += -signalMagnitude/k_T2Values[compartment]*k_deltaTime;
-		//printf("In kernel 3\n");
-		//printf("m_dT2Values[%u]= %f\n",compartment,m_dT2Values[compartment]);
-		spinInfo[index].signalMagnitude += -spinInfo[index].signalMagnitude/m_dT2Values[compartment]*k_deltaTime;
-		//printf("updated spin signalMagnitude: %f",spinInfo[index].signalMagnitude);
+		spinInfo[index].signalMagnitude += -spinInfo[index].signalMagnitude/k_T2Values[compartment]*k_deltaTime;
+		
 		// Update MR signal phase
 		//signalPhase += (gradX * pos.x + gradY * pos.y + gradZ * pos.z) * phaseConstant;
-		//printf("phaseConstant: %f, gradientX: %f, gradientY: %f,gradientZ: %f\n",phaseConstant,gradX,gradY,gradZ);
-		spinInfo[index].signalPhase += (gradX * pos.x + gradY * pos.y + gradZ * pos.z) * phaseConstant;
-		//printf("updated spin signal phase : %f",spinInfo[index].signalPhase);
+		spinInfo[index].signalPhase += (grad.x * pos.x + grad.y * pos.y + grad.z * pos.z) * phaseConstant;
+		printf("updated spin signal phase : %f",spinInfo[index].signalPhase);
 
 
 	}
@@ -888,270 +845,27 @@ __global__ void integrate(float3* oldPos,
 		
 }
 
-
-
-
-#endif
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/////////////////////////////////////////////////////////////////////////////////////////
-// File name:		spinSystem.cu
-// Description:		Definition of all CUDA functions that are not used inside the
-//			kernel.
-/////////////////////////////////////////////////////////////////////////////////////////
-
-
-
-
-
-void print_last_CUDA_error()
-/* just run cudaGetLastError() and print the error message if its return value is not cudaSuccess */
-{
-  cudaError_t cudaError;
-
-  cudaError = cudaGetLastError();
-  if(cudaError != cudaSuccess)
-  {
-    printf("  cudaGetLastError() returned %d: %s\n", cudaError, cudaGetErrorString(cudaError));
-  }
-}
-extern "C"
-{
-
-void checkCUDA()
-{
-//	cuda(Free(0));
-}
-
-
-///////////////////////////////////////////////////////////////////////
-// Function name:	allocateArray
-// Description:		Allocate memory on device for an array pointed to
-//			by devPtr of size size.
-///////////////////////////////////////////////////////////////////////
-void allocateArray(void **devPtr, size_t size)
-{
-	cudaMalloc(devPtr,size);
-}
-
-
-///////////////////////////////////////////////////////////////////////
-// Function name:	freeArray
-// Description:		Free up the device memory used by the array pointed
-//			to by devPtr
-///////////////////////////////////////////////////////////////////////
-void freeArray(void *devPtr)
-{
-	cudaFree(devPtr);
-}
-
-
-///////////////////////////////////////////////////////////////////////
-// Function name:	threadSync
-// Description:		Block until the device has completed all preceding
-//			requested tasks.
-///////////////////////////////////////////////////////////////////////
-void threadSync()
-{
-	cudaThreadSynchronize();
-}
-
-
-///////////////////////////////////////////////////////////////////////
-// Function name:	copyArrayFromDevice
-// Description:		Copy array from device (pointed to by device parameter)
-//			to array on host (pointed to by host parameter)
-///////////////////////////////////////////////////////////////////////
-void copyArrayFromDevice(void* host, const void* device, unsigned int vbo, int size)
-{
-	if (vbo)
-		cudaGLMapBufferObject((void**)&device, vbo);
-	cudaMemcpy(host, device, size, cudaMemcpyDeviceToHost);
-	if (vbo)
-		cudaGLUnmapBufferObject(vbo);
-}
-
-
-////////////////////////////////////////////////////////////////////////
-// Function name:	copyArrayToDevice
-// Description:		Copy array from host (pointed to by host parameter)
-//			to array on device (pointed to by device parameter)
-////////////////////////////////////////////////////////////////////////
-void copyArrayToDevice(void* device, const void* host, int offset, int size)
-{
-	cudaMemcpy((char *) device + offset, host, size, cudaMemcpyHostToDevice);
-}
-
-
-/////////////////////////////////////////////////////////////////////////
-// Function name:	copyConstantToDevice
-// Description:		Copy constant from host (with name host) to device
-//			(with name device).
-/////////////////////////////////////////////////////////////////////////
-void copyConstantToDevice(void* device, const void* host, int offset, int size)
-{
-	cudaMemcpyToSymbol((char *) device, host, size);
-}
-
-
-//////////////////////////////////////////////////////////////////////////
-// Function name:	registerGLBufferObject
-// Description:		Registers the buffer object of ID vbo for access by CUDA.
-//////////////////////////////////////////////////////////////////////////
-void registerGLBufferObject(uint vbo)
-{
-	cudaGLRegisterBufferObject(vbo);
-}
-
-
-//////////////////////////////////////////////////////////////////////////
-// Function name:	unregisterGLBufferObject
-// Description:		Unregisters the buffer object of ID vbo for access by CUDA
-//			and releases any CUDA resources associated with the buffer.
-//////////////////////////////////////////////////////////////////////////
-void unregisterGLBufferObject(uint vbo)
-{
-	cudaGLUnregisterBufferObject(vbo);
-}
-
-
-//////////////////////////////////////////////////////////////////////////
-// The following functions bind/unbind various arrays from host to device
-// texture memory.
-// Note: Should combine into one function
-//////////////////////////////////////////////////////////////////////////
-void bindCubeCounter(uint* ptr, int size)						// Test
-{
-	cudaBindTexture(0,texCubeCounter,ptr,size*sizeof(uint));
-}
-
-void unbindCubeCounter()								// Test
-{
-	cudaUnbindTexture(texCubeCounter);
-}
-
-void bindTrianglesInCubes(uint* ptr, int size)						// Test
-{
-	cudaBindTexture(0,texTrianglesInCubes,ptr,size*sizeof(uint));
-}
-
-void unbindTrianglesInCubes()								// Test
-{
-	cudaUnbindTexture(texTrianglesInCubes);
-}
-/*
-void bindTrgls(uint* ptr, int size)							// Test
-{
-	cudaBindTexture(0,texTrgls,ptr,size*sizeof(uint));
-}
-
-void unbindTrgls()									// Test
-{
-	cudaUnbindTexture(texTrgls);
-}
-*/
-void bindVertices(float* ptr, int size)							// Test
-{
-	if (size>0){
-		cudaBindTexture(0,texVertices,ptr,size*sizeof(float));
-	}
-}
-
-void unbindVertices()									// Test
-{
-	cudaUnbindTexture(texVertices);
-}
-
-void bindTriangleHelpers(float* ptr, int size)						// Test
-{
-	if (size>0){
-		cudaBindTexture(0,texTriangleHelpers,ptr,size*sizeof(float));
-	}
-}
-
-void unbindTriangleHelpers()								// Test
-{
-	cudaUnbindTexture(texTriangleHelpers);
-}
-
-void bindRTreeArray(float* ptr, int size)						// Test
-{
-	if (size>0){
-		cudaBindTexture(0,texRTreeArray,ptr,size*sizeof(float));
-	}
-}
-
-void unbindRTreeArray()									// Test
-{
-	cudaUnbindTexture(texRTreeArray);
-}
-
-void bindTreeIndexArray(uint* ptr, int size)						// Test
-{
-	if (size>0){
-		cudaBindTexture(0,texCombinedTreeIndex,ptr,size*sizeof(uint));
-	}
-}
-
-void unbindTreeIndexArray()								// Test
-{
-	cudaUnbindTexture(texCombinedTreeIndex);
-}
-
-void bindTriInfo(uint* ptr, int size)						// Test
-{
-	if (size>0){
-		cudaBindTexture(0,texTriInfo,ptr,size*sizeof(uint));
-	}
-}
-
-void unbindTriInfo()								// Test
-{
-	cudaUnbindTexture(texTriInfo);
-}
-
-///////////////////////////////////////////////////////////////////////////
-// Function name:	integrateSystem
-// Description:		Run the kernel for spin computations
-///////////////////////////////////////////////////////////////////////////
 void integrateSystem(
-			uint pos,
+			float* pos,
 			uint* randSeed,
+			//float* spinInfo,
 			spinData* spinInfo,
 			float deltaTime,
 			float permeability,
-			uint numBodies,
+			int numBodies,
 			float3 gradient,
 			float phaseConstant,
-			uint iterations, uint* trianglesInCubes, uint* cubeCounter,uint m_nMembraneTypes, uint m_nPosValues, uint m_numSpins, uint m_nSeedValues, uint m_numCompartments, float* m_hT2Values, float* m_hStdDevs, uint m_reflectionType, uint m_triSearchMethod, uint m_nFibers
-			){
+			uint iterations, uint* trianglesInCubes, uint* cubeCounter
+			)
+{
 	static bool firstCall = true;
-
+		printf("integrate System!!!!!!!!\n");
 	int i =0;
 	struct cudaDeviceProp devInfo;
 	cudaGetDeviceProperties(&devInfo, i);
 
 	if (firstCall){
-		
+		firstCall = false;
 		// Write out some info
 		printf("\n\n\n\n\nCUDA device info:\n\n");
 		printf("Name: %s\n", devInfo.name);
@@ -1162,261 +876,79 @@ void integrateSystem(
 		printf("memPitch: %u\n", devInfo.memPitch);
 		printf("maxThreadsPerBlock: %u\n", devInfo.maxThreadsPerBlock);
 		printf("\n\n");
-firstCall = false;
 	}
-
-
-	cudaError_t cudaerr;
-
-	
-	
-	float *Pos; 
-	cudaGLMapBufferObject((void**)&Pos, pos);
-	float* m_dSpins;
-	uint* m_dSeed;
-	//allocateArray((void**)&m_dSpins[0], sizeof(float) * m_nSpinValues * m_numSpins);
-	//allocateArray((void**)&m_dSpins[1], sizeof(float) * m_nSpinValues * m_numSpins);
-	//cudaMalloc((void**)m_dSpins, m_numSpins*sizeof(spinData));
-	//cudaMemcpy(m_dSpins, spinInfo, m_numSpins*sizeof(spinData),cudaMemcpyHostToDevice);
-	
-
-	//cudaMalloc((void**)m_dSeed, sizeof(uint) * m_nSeedValues * m_numSpins);
-	//cudaMemcpy(m_dSeed,randSeed , m_numSpins*m_nSeedValues*sizeof(uint),cudaMemcpyHostToDevice);
-	
-
-
-	float* m_dStdDevs;			
-	float* m_dT2Values;
-	
-	cudaMalloc((void**)&m_dT2Values, m_numCompartments*sizeof(float));
-	cudaMemcpy(m_dT2Values, m_hT2Values, m_numCompartments*sizeof(float),cudaMemcpyHostToDevice);
-	cudaMalloc((void**)&m_dStdDevs, m_numCompartments*sizeof(float));
-	cudaMemcpy(m_dStdDevs, m_hStdDevs, m_numCompartments*sizeof(float),cudaMemcpyHostToDevice);
-	
-	
-	//print_last_cuda_error();    // throw error
-
-	// Set constants in device memory
-
-	cudaMemcpyToSymbol(k_reflectionType, &m_reflectionType, sizeof(uint));
-
-	cudaMemcpyToSymbol(k_triSearchMethod, &m_triSearchMethod, sizeof(uint));
-
-	cudaMemcpyToSymbol(k_nFibers, &m_nFibers, sizeof(uint));
-
-	cudaMemcpyToSymbol(k_nCompartments, &m_numCompartments, sizeof(uint));
-
-	cudaMemcpyToSymbol(k_nCompartments, &m_numCompartments, sizeof(uint));
-
-	cudaMemcpyToSymbol(k_permeability, &permeability, sizeof(float));
-
-	cudaMemcpyToSymbol(k_deltaTime, &deltaTime, sizeof(float));
-
-	cudaMemcpyToSymbol(k_T2Values, &m_hT2Values, sizeof(float));
-
-	cudaMemcpyToSymbol(k_stdDevs, &m_hStdDevs, sizeof(float));
-	
-
-	// Number of threads will normally be 128
-	int numThreads = min(90, numBodies);
-	int numBlocks = numBodies/numThreads;
-	cudaDeviceSynchronize();
-
-
-	// Execute the kernel
-
-
-integrate<<<numBlocks, numThreads>>>((float3*) pos, (uint2*) randSeed, spinInfo, deltaTime, permeability, numBodies, gradient.x, gradient.y, gradient.z, phaseConstant, iterations, trianglesInCubes, cubeCounter, m_dStdDevs,m_dT2Values);
-
-
-	 cudaerr = cudaDeviceSynchronize();
-    if (cudaerr != CUDA_SUCCESS)
-        printf("kernel launch failed with error \"%s\".\n",
-               cudaGetErrorString(cudaerr));
-/*			cudaGLUnmapBufferObject(Pos);
-			cudaMemcpy( m_posVbo, m_hPos, sizeof(float)*numBodies*m_nPosValues , cudaMemcpyDeviceToHost );
-			cudaMemcpy( m_dSeed, m_hSeed, sizeof(uint)*numBodies*m_nSeedValues, cudaMemcpyDeviceToHost );
-			cudaMemcpy( m_dSpins, m_hSpins, sizeof(spinData)*numBodies, cudaMemcpyDeviceToHost );
-			cudaMemcpy( m_dTrianglesInCubes, m_hTrianglesInCubes, sizeof(uint)*m_nMembraneTypes*k_totalNumCubes*k_maxTrianglesPerCube, 				cudaMemcpyDeviceToHost );
-			cudaMemcpy( m_dCubeCounter, m_hCubeCounter, sizeof(uint)*m_nMembraneTypes*k_totalNumCubes, cudaMemcpyDeviceToHost );
-*/
-
-}
-
-
-
-//////////////////////////////////////////////////////////////////////////////////////
-// Function name:	integrateSystemVBO
-// Description:		Register the vertex buffer object for access by CUDA, perform
-//			the GPU computation using integrateSystem, then unregister
-//			the VBO.
-//////////////////////////////////////////////////////////////////////////////////////
-void integrateSystemVBO(
-			float* vboPos,
-			uint* randSeed,
-			spinData* spinInfo,
-			float deltaTime,
-			float permeability,
-			uint numBodies,
-			float3 gradient,
-			float phaseConstant,
-			uint itr, uint* trianglesInCubes, uint* cubeCounter,uint m_nMembraneTypes, uint m_nPosValues, uint m_numSpins, uint m_nSeedValues, uint m_numCompartments, float* m_hT2Values, float* m_hStdDevs, uint m_reflectionType, uint m_triSearchMethod, uint m_nFibers, uint m_nSpinValues, uint m_totalNumCubes, uint m_maxTrianglesPerCube, uint m_numCubes, uint m_posVbo
-			){
-	
-//	cudaGLMapBufferObject((void**)&pos, vboPos);
-	
-	static bool firstCall = true;
-	
-	int i =0;
-	struct cudaDeviceProp devInfo;
-	cudaGetDeviceProperties(&devInfo, i);
-
-	if (firstCall){
-		
-		// Write out some info
-		printf("\n\n\n\n\nCUDA device info:\n\n");
-		printf("Name: %s\n", devInfo.name);
-		printf("totalGlobalMem: %u\n", devInfo.totalGlobalMem);
-		printf("sharedMemPerBlock: %u\n", devInfo.sharedMemPerBlock);
-		printf("regsPerBlock: %u\n", devInfo.regsPerBlock);
-		printf("warpSize: %u\n", devInfo.warpSize);
-		printf("memPitch: %u\n", devInfo.memPitch);
-		printf("maxThreadsPerBlock: %u\n", devInfo.maxThreadsPerBlock);
-		printf("\n\n");
-firstCall = false;
-	}
-
-
-	cudaError_t cudaerr;
-
-	float *pos1;
-	cudaGLMapBufferObject((void**)&pos1, m_posVbo);
-	
-	
-	float* m_dStdDevs;			// Test
-	float* m_dT2Values;
-	spinData* m_dSpins;
-	uint2* m_dSeed;
-	float3* t_pos;
-	float3* pos =  (float3*) pos1; 
-
-	// Trying to cast the Pos variable form float to float3. The same is done for the seed variable (cast from uint to uint2).
-	
-	/*for(int jj=0;jj<numBodies*m_nPosValues;jj+=3)
-	{	
-		pos[jj] = make_float3(vboPos[jj],vboPos[jj+1],vboPos[jj+2]);
-		//std::cout<<pos[jj].x<<"\n";
-	}
-	
-	uint2* seeds = (uint2*)malloc(sizeof(uint2)* m_nSeedValues * m_numSpins); 
-	for(int jj=0;jj<* m_nSeedValues * m_numSpins;jj++)
-	{	
-		pos[jj] = make_float3(vboPos[jj],vboPos[jj+1],vboPos[jj+2]);
-		//std::cout<<pos[jj].x<<"\n";
-	}
-*/	
-
-	// Coping the variables from host to device
-
-	cudaMalloc(&t_pos, sizeof(float3) * m_nPosValues * m_numSpins);
-	cudaMemcpy(t_pos, pos, sizeof(float3) * m_nPosValues * m_numSpins, cudaMemcpyHostToDevice);
-	cudaMalloc((void **)&m_dSpins, sizeof(spinData) * m_numSpins);
-	cudaMemcpy(m_dSpins, spinInfo, sizeof(spinData) * m_numSpins,cudaMemcpyHostToDevice);
-	
-	uint2* m_dseed = (uint2*) randSeed;
-	cudaMalloc((void **)&m_dSeed, sizeof(uint2) * m_nSeedValues * m_numSpins);
-	cudaMemcpy(m_dSeed,m_dseed , m_numSpins*m_nSeedValues*sizeof(uint),cudaMemcpyHostToDevice);
-	uint* m_dTrianglesInCubes;
-	uint* m_dCubeCounter;
-	cudaMalloc((void**)&m_dTrianglesInCubes, m_totalNumCubes*m_maxTrianglesPerCube*sizeof(uint));
-	cudaMalloc((void**)&m_dCubeCounter, m_totalNumCubes*sizeof(uint));
-	cudaMemcpy(m_dTrianglesInCubes, trianglesInCubes, m_totalNumCubes*m_maxTrianglesPerCube*sizeof(uint),cudaMemcpyHostToDevice);
-	cudaMemcpy(m_dCubeCounter, cubeCounter, m_totalNumCubes*sizeof(uint),cudaMemcpyHostToDevice);
-
-	cudaMalloc((void**)&m_dT2Values, m_numCompartments*sizeof(float));
-	cudaMemcpy(m_dT2Values, m_hT2Values, m_numCompartments*sizeof(float),cudaMemcpyHostToDevice);
-	cudaMalloc((void**)&m_dStdDevs, m_numCompartments*sizeof(float));
-	cudaMemcpy(m_dStdDevs, m_hStdDevs, m_numCompartments*sizeof(float),cudaMemcpyHostToDevice);
-	
-	//print_last_cuda_error();    
-
-	// Set constants in device memory
-
-	cudaMemcpyToSymbol(k_reflectionType, &m_reflectionType, sizeof(uint));
-
-	cudaMemcpyToSymbol(k_triSearchMethod, &m_triSearchMethod, sizeof(uint));
-
-	cudaMemcpyToSymbol(k_nFibers, &m_nFibers, sizeof(uint));
-
-	cudaMemcpyToSymbol(k_nCompartments, &m_numCompartments, sizeof(uint));
-
-	cudaMemcpyToSymbol(k_nCompartments, &m_numCompartments, sizeof(uint));
-
-	cudaMemcpyToSymbol(k_permeability, &permeability, sizeof(float));
-
-	cudaMemcpyToSymbol(k_deltaTime, &deltaTime, sizeof(float));
-
-	cudaMemcpyToSymbol(k_T2Values, m_dT2Values, m_numCompartments*sizeof(float));
-
-	cudaMemcpyToSymbol(k_stdDevs, m_dStdDevs,m_numCompartments*sizeof(float));
-	
-		float m_cubeLength = 2.0f / m_numCubes;
-	cudaMemcpyToSymbol(k_cubeLength, &m_cubeLength, sizeof(float));	
-
-
-	
-	cudaMemcpyToSymbol(m_dNumSpins, &numBodies, sizeof(uint));
-	cudaMemcpyToSymbol(gradientX, &(gradient.x), sizeof(float));
-	cudaMemcpyToSymbol(gradientY, &(gradient.y), sizeof(float));
-	cudaMemcpyToSymbol(gradientZ, &(gradient.z), sizeof(float));
-	cudaMemcpyToSymbol(interations, &(itr), sizeof(float));
 
 	// Number of threads will normally be 128
 	int numThreads = min(128, numBodies);
-	int numBlocks = numBodies/numThreads;
-	//cudaDeviceSynchronize();
+	int numBlocks = 1 + numBodies/numThreads;
+	
+float3* cPos,
+			uint2* crandSeed,
+			//float* spinInfo,
+			spinData* cSpin,
+			float cdelta,
+			float perm,
+			int cBodies,
+			float3 grad,
+			float cphase,
+			uint itr, 
+			uint* ctriangles,
+			 uint* cCube
+cudaMalloc( (void **)&cPos, sizeof(float3) );
+cudaMalloc( (void **)&crandSeed, sizeof(uint) );
+cudaMalloc( (void **)&cSpin, sizeof(spinData) );
+cudaMalloc( (void **)&ctriangles, sizeof(uint) );
+cudaMalloc( (void **)&cCube, sizeof(uint) );
+cudaMalloc( (void **)&cdelta, sizeof(float) );
+cudaMalloc( (void **)&prem, sizeof(float) );
+cudaMalloc( (void **)&cgrad, sizeof(float3) );
+cudaMalloc( (void **)&cphase, sizeof(float) );
+cudaMalloc( (void **)&itr, sizeof(uint) );
+cudaMalloc( (void **)&cBody, sizeof(int) );
 
+  cudaMemcpy( cPos, pos, sizeof(float3), cudaMemcpyHostToDevice );
+  cudaMemcpy( crandSeed, randSeed, sizeof(uint2), cudaMemcpyHostToDevice );
+cudaMemcpy( cSpin, spinInfo, sizeof(spinData), cudaMemcpyHostToDevice );
+  cudaMemcpy( ctriangles, trianglesInCubes, sizeof(uint), cudaMemcpyHostToDevice );
+cudaMemcpy( cCube, cubeCounter, sizeof(uint), cudaMemcpyHostToDevice );
+  cudaMemcpy( cdelta, deltaTime, sizeof(float), cudaMemcpyHostToDevice );
+cudaMemcpy( prem, permeability, sizeof(float), cudaMemcpyHostToDevice );
+  cudaMemcpy( cgrad, gradient, sizeof(float3), cudaMemcpyHostToDevice );
+cudaMemcpy( cphase, phaseConstant, sizeof(float), cudaMemcpyHostToDevice );
+  cudaMemcpy( itr, iterations, sizeof(uint), cudaMemcpyHostToDevice );
+  cudaMemcpy( cBody, numBodies, sizeof(int), cudaMemcpyHostToDevice );
 
 	// Execute the kernel
+	integrate<<< numBlocks, numThreads >>>(cPos, crandSeed, cSpin, cdelta, perm, cBodies, cgrad, cphase, itr, ctriangles, cCube);
 
+  cudaMemcpy( pos, cPos, sizeof(float), cudaMemcpyDeviceToHost );
+  cudaMemcpy( randSeed, crandSeed, sizeof(uint), cudaMemcpyDeviceToHost );
+cudaMemcpy( spinInfo, cSpin, sizeof(spinData), cudaMemcpyDeviceToHost );
+  cudaMemcpy( trianglesInCubes, ctriangles, sizeof(uint), cudaMemcpyDeviceToHost );
+cudaMemcpy(  cubeCounter,cCube, sizeof(uint), cudaMemcpyDeviceToHost );
+  cudaMemcpy( deltaTime, cdelta, sizeof(float), cudaMemcpyDeviceToHost );
+cudaMemcpy( permeability, prem, sizeof(float), cudaMemcpyDeviceToHost );
+  cudaMemcpy( gradient, cgrad, sizeof(float3), cudaMemcpyDeviceToHost );
+cudaMemcpy(phaseConstant,  cphase, sizeof(float), cudaMemcpyDeviceToHost );
+  cudaMemcpy( iterations, itr, sizeof(uint), cudaMemcpyDeviceToHost );
+  cudaMemcpy( numBodies, cBody, sizeof(int), cudaMemcpyDeviceToHost );
 
-integrate<<<numBlocks, numThreads>>>(t_pos, m_dSeed, m_dSpins, deltaTime, permeability, numBodies, gradient.x, gradient.y, gradient.z, phaseConstant, itr, trianglesInCubes, cubeCounter, m_dStdDevs,m_dT2Values);
-
-
-	 cudaerr = cudaDeviceSynchronize();
-    if (cudaerr != CUDA_SUCCESS)
-        printf("kernel launch failed with error \"%s\".\n",
-               cudaGetErrorString(cudaerr));
-
-//Coping the vraiables form Device to Host
-																																																																																																																																																																																																																																																																																																																																																																				
-cudaMemcpy( pos, t_pos, m_numSpins*m_nPosValues*sizeof(float3), cudaMemcpyDeviceToHost );
-cudaMemcpy( m_dseed, m_dSeed, sizeof(uint2) * m_nSeedValues * m_numSpins, cudaMemcpyDeviceToHost );
-cudaMemcpy( spinInfo, m_dSpins, sizeof(spinData) *  m_numSpins, cudaMemcpyDeviceToHost );
-randSeed = (uint *)m_dseed;
-vboPos = (float*)pos;
-
-/*for(int jj=0;jj<numBodies*m_nPosValues;jj+=3)
-	{	
-		vboPos[jj] = pos[jj].x;
-		vboPos[jj+1] = pos[jj].y;
-		vboPos[jj+2] = pos[jj].z;
-		//std::cout<<pos[jj].x<<"\n";
-	}
-*/
-
-cudaGLUnmapBufferObject(m_posVbo);
-
-cudaFree(t_pos);
-cudaFree(m_dSeed);
-cudaFree(m_dTrianglesInCubes);
-cudaFree(m_dCubeCounter);
-cudaFree(m_dSpins);
-cudaFree(m_dStdDevs);
-cudaFree(m_dT2Values);
-
+cudaFree(cPos);
+cudaFree(crandSeed);
+cudaFree(cSpin);
+cudaFree(ctriangles);
+cudaFree(cCube);
+cudaFree(cdelta);
+cudaFree(prem);
+cudaFree(cgrad);
+cudaFree(cphase);
+cudaFree(itr);
+cudaFree(cBody);
+	//cudaDeviceSynchronize();
 	
-}	
+	
+
+}
 
 
-} // extern "C"
+#endif

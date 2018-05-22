@@ -488,6 +488,7 @@ void SpinSystem::cpuIntegrate(int spinIndex, float3 magneticGradient, float phas
 	// Update MR signal phase
 	//m_hSpins[spinIndex*m_nSpinValues+2] += (magneticGradient.x * pos.x + magneticGradient.y * pos.y + magneticGradient.z * pos.z) * phaseConstant;
 	m_hSpins[spinIndex].signalPhase += (magneticGradient.x * pos.x + magneticGradient.y * pos.y + magneticGradient.z * pos.z) * phaseConstant;
+	//printf("updated spin signal phase : %f",m_hSpins[spinIndex].signalPhase);
 
 	// Update which fiber the spin belongs to
 	//m_hSpins[spinIndex*m_nSpinValues+3] = fiberInside;
