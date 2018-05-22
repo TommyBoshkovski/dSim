@@ -1,3 +1,4 @@
+
 ################################################################################
 #
 # Copyright 1993-2006 NVIDIA Corporation.  All rights reserved.
@@ -37,6 +38,12 @@
 #
 ###############################################################
 
+# CUDA SDK include files 
+
+CUDA_SAMPLES_INCLUDE=/usr/local/cuda-7.5/samples/common/inc
+CUDA_SAMPLES_LIBS=/usr/local/cuda-7.5/samples/common/lib/linux/x86_64
+CUDA_LIBS=/usr/local/cuda-7.5/lib64
+CUDA_INCLUDE=/usr/local/cuda-7.5/include
 # Source files
 EXECUTABLE	:= diffusion
 
@@ -46,7 +53,7 @@ EXECUTABLE	:= diffusion
 SRCDIR     ?= src
 BINDIR     ?= bin
 ROOTOBJDIR ?= obj
-BINSUBDIR   := release
+BINSUBDIR  ?= release
 
 # Compiler-specific flags
 NVCCFLAGS :=
@@ -69,27 +76,30 @@ TARGET    := $(TARGETDIR)/$(EXECUTABLE)
 OBJDIR := $(ROOTOBJDIR)/$(BINSUBDIR)
 
 
-all: $(TARGET)
+all: makedirs $(TARGET)
+
 
 $(TARGET): $(OBJDIR)/diffusion.o $(OBJDIR)/spinSystem.o $(OBJDIR)/renderSpins.o $(OBJDIR)/shaders.o $(OBJDIR)/spinSystem.cu_o
-	g++ -fPIC -o bin/release/diffusion $(OBJDIR)/diffusion.o $(OBJDIR)/spinSystem.o $(OBJDIR)/renderSpins.o $(OBJDIR)/shaders.o $(OBJDIR)/spinSystem.cu_o -L/usr/local/cuda/lib64 -L/usr/local/cuda/sdk/C/lib -L/usr/local/cuda/sdk/C/common/lib -lconfig++ -lcutil -lglut -lcudart -lGL -lGLU -lGLEW -lparamgl
+	g++ -fPIC -o bin/release/diffusion $(OBJDIR)/diffusion.o $(OBJDIR)/spinSystem.o $(OBJDIR)/renderSpins.o $(OBJDIR)/shaders.o $(OBJDIR)/spinSystem.cu_o -L$(CUDA_LIBS) -L/usr/local/cuda/sdk/C/lib -L$(CUDA_SAMPLES_LIBS) -lconfig++ -lglut -lcudart -lGL -lGLU -lGLEW 
 
 $(OBJDIR)/diffusion.o: $(SRCDIR)/diffusion.cpp
-	g++ -fno-strict-aliasing $(CXXFLAGS) -I. -I/usr/local/cuda/include -I/usr/local/cuda/sdk/C/common/inc -I./jama/ -I./tnt/ -DUNIX -g -o $(OBJDIR)/diffusion.o -c $(SRCDIR)/diffusion.cpp
+	g++ -fno-strict-aliasing $(CXXFLAGS) -I. -I$(CUDA_INCLUDE) -I$(CUDA_SAMPLES_INCLUDE) -I./jama/ -I./tnt/ -DUNIX -g -o $(OBJDIR)/diffusion.o -c $(SRCDIR)/diffusion.cpp
 
 $(OBJDIR)/spinSystem.o: $(SRCDIR)/spinSystem.cpp
-	g++ -fno-strict-aliasing $(CXXFLAGS) -I. -I/usr/local/cuda/include -I/usr/local/cuda/sdk/C/common/inc -DUNIX -g -o $(OBJDIR)/spinSystem.o -c $(SRCDIR)/spinSystem.cpp
+	/usr/local/cuda/bin/nvcc -o $(OBJDIR)/spinSystem.o -c $(SRCDIR)/spinSystem.cpp --ptxas-options="-v" --compiler-options -fno-strict-aliasing $(NVCCFLAGS) -I. -I$(CUDA_INCLUDE) -I$(CUDA_SAMPLES_INCLUDE) -DUNIX -g
 
 $(OBJDIR)/renderSpins.o: $(SRCDIR)/renderSpins.cpp
-	g++ -fno-strict-aliasing $(CXXFLAGS) -I. -I/usr/local/cuda/include -I/usr/local/cuda/sdk/C/common/inc -DUNIX -g -o $(OBJDIR)/renderSpins.o -c $(SRCDIR)/renderSpins.cpp
+	g++ -fno-strict-aliasing $(CXXFLAGS) -I. -I$(CUDA_INCLUDE) -I$(CUDA_SAMPLES_INCLUDE) -DUNIX -g -o $(OBJDIR)/renderSpins.o -c $(SRCDIR)/renderSpins.cpp
 
 $(OBJDIR)/shaders.o: $(SRCDIR)/shaders.cpp
-	g++ -fno-strict-aliasing $(CXXFLAGS) -I. -I/usr/local/cuda/include -I/usr/local/cuda/sdk/C/common/inc -DUNIX -g -o $(OBJDIR)/shaders.o -c $(SRCDIR)/shaders.cpp
+	g++ -fno-strict-aliasing $(CXXFLAGS) -I. -I$(CUDA_INCLUDE) -I$(CUDA_SAMPLES_INCLUDE) -DUNIX -g -o $(OBJDIR)/shaders.o -c $(SRCDIR)/shaders.cpp
 
 $(OBJDIR)/spinSystem.cu_o: $(SRCDIR)/spinSystem.cu
-	nvcc -o $(OBJDIR)/spinSystem.cu_o -c $(SRCDIR)/spinSystem.cu --ptxas-options="-v" --compiler-options -fno-strict-aliasing -arch=sm_11 $(NVCCFLAGS) -I. -I/usr/local/cuda/include -I/usr/local/cuda/sdk/C/common/inc -DUNIX -g
+	/usr/local/cuda/bin/nvcc -o $(OBJDIR)/spinSystem.cu_o -c $(SRCDIR)/spinSystem.cu --ptxas-options="-v" --compiler-options -fno-strict-aliasing $(NVCCFLAGS) -I. -I$(CUDA_INCLUDE) -I$(CUDA_SAMPLES_INCLUDE) -DUNIX -g
+makedirs:	
+	@mkdir -p $(OBJDIR)
+	@mkdir -p $(TARGETDIR)
 
 clean:
 	rm -rf $(OBJDIR)/*o $(TARGET)
-
-
+ 	 

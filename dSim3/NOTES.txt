@@ -1,0 +1,21 @@
+NOTES:
+
+1. OpenGL use Intel graphics card for rendering. This should be changed, so that OpenGl should use nvidia for rendering.
+
+2. After adding the following code segment in rendererSpins.cpp the practicles are drawn within the axons:
+	//glDepthMask(GL_FALSE);
+	check_gl_error();        
+	//glEnable(GL_DEPTH_TEST);
+	check_gl_error();
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        glEnable(GL_BLEND);
+        glDepthMask(GL_FALSE);
+
+
+
+3. The MR Signal is equal to 1.0 for all measurments --- There must be some error.
+
+4. All of the elements of the diffusion tensor are equal to 0. 
+First, we compute the gradient directions, b - values, log(Dw signal), and log(B0). After, the adc is computed and the normalized non-zero gradient components are rearanged.
+find the pseudo-inverse of m by doing an SVD decomposition of the Rearranged normalized non-zero gradient components (m).
+We use SVD (single value decomposition) to find the inverse of m, and then we fit the diffusion tensor by multipling  the adc and the inverse of m using function matmult defined in tnt_array2d_utils.h .
